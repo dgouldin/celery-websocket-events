@@ -9,6 +9,8 @@ import redis
 from flask import Flask, render_template, request
 from flask_sockets import Sockets
 from geventwebsocket.exceptions import WebSocketError
+
+from tasks import MyTask
 from pubsub import PubSubBackend
 
 REDIS_URL = os.environ.get('REDISCLOUD_URL', 'redis://localhost:6379')
@@ -26,7 +28,7 @@ def receive_message(ws):
             data = ws.receive()
         except WebSocketError:
             app.logger.error('Websocket went away while trying to read')
-            return {}
+            return
 
         if data:
             try:
@@ -36,7 +38,8 @@ def receive_message(ws):
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    result = MyTask().delay()
+    return render_template('index.html', task_id=result.id)
 
 @sockets.route('/subscribe')
 def subscribe(ws):
@@ -47,8 +50,10 @@ def subscribe(ws):
         backend = PubSubBackend(redis_client, ws, channel, app.logger)
         backend.start()
 
-        while not ws.closed:
+        # In order to detect that the websocket closed, we must be actively
+        # trying to receive data on it.
+        while receive_message(ws):
             gevent.sleep()
 
-        app.logger.error('Websocket closed, unsubscribing')
+        app.logger.debug('Websocket closed, unsubscribing')
         backend.unsubscribe()

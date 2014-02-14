@@ -6,6 +6,15 @@
     <script type="text/javascript" src="static/js/jquery-2.1.0.min.js"></script>
     <script type="text/javascript" src="static/js/reconnecting-websocket.min.js"></script>
     <script type="text/javascript" src="static/js/client.js"></script>
+    <script type="text/javascript">
+      function handleStatus(message) {
+        console.log(message.status, message.data);
+      }
+
+      var channel = "{{ task_id }}";
+      var pubsub = new PubSub('ws://' + location.host);
+      pubsub.subscribe(channel).addHandler(channel, handleStatus);
+    </script>
   </body>
 </html>
 

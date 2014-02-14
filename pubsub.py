@@ -1,5 +1,7 @@
 from __future__ import unicode_literals
 from collections import defaultdict
+
+import anyjson
 import gevent
 
 class PubSubBackend(object):
@@ -28,11 +30,14 @@ class PubSubBackend(object):
                 if channel == self.channel:
                     yield (data)
 
-    def _send(self, socket, data):
+    def _send(self, data):
         try:
-            socket.send(data)
+            self.socket.send(anyjson.dumps({
+                'channel': self.channel,
+                'data': anyjson.loads(data),
+            }))
         except Exception: # TODO: don't catch base exception
-            self.sockets.remove(socket)
+            self.unsubscribed = True
 
     def run(self):
         self.logger.debug('(redis) [SUBSCRIBE] {0}'.format(self.channel))
@@ -40,7 +45,7 @@ class PubSubBackend(object):
         for data in self.__iter_data():
             self.logger.debug('(socket) [MESSAGE] {0}: {1}'.format(self.channel,
                 data))
-            gevent.spawn(self._send, self.socket, data)
+            gevent.spawn(self._send, data)
 
     def start(self):
         gevent.spawn(self.run)
